@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎵 YT Player</title>
+<!-- iOS PWA 背景音訊支援 -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="YT Player">
+<meta name="mobile-web-app-capable" content="yes">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d0f14;
+  --surface: #161921;
+  --card: #1e2230;
+  --border: #2a2f40;
+  --accent: #e05c5c;
+  --accent2: #f0a050;
+  --text: #eef0f5;
+  --text2: #8b90a8;
+  --text3: #565b74;
+  --radius: 12px;
+  --glow: 0 0 20px rgba(224,92,92,0.25);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;}
+
+/* ── Auth Screen ── */
+#auth-screen{
+  display:flex;align-items:center;justify-content:center;
+  min-height:100vh;padding:2rem;
+  background:var(--bg);
+}
+.auth-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:20px;padding:2.5rem 2rem;width:380px;max-width:100%;
+  text-align:center;
+}
+.auth-logo{font-size:2.5rem;margin-bottom:0.5rem;}
+.auth-title{font-family:'Space Mono',monospace;font-size:1.3rem;color:var(--accent);letter-spacing:3px;margin-bottom:0.3rem;}
+.auth-sub{font-size:0.82rem;color:var(--text3);margin-bottom:2rem;}
+.auth-input{
+  width:100%;background:var(--card);border:1px solid var(--border);
+  border-radius:10px;padding:0.75rem 1rem;color:var(--text);
+  font-size:0.9rem;font-family:'Noto Sans TC',sans-serif;
+  margin-bottom:0.75rem;outline:none;transition:border-color 0.2s;
+}
+.auth-input:focus{border-color:var(--accent);}
+.auth-btn{
+  width:100%;background:var(--accent);color:#fff;border:none;
+  padding:0.85rem;border-radius:10px;font-size:0.95rem;
+  font-family:'Noto Sans TC',sans-serif;cursor:pointer;
+  transition:opacity 0.2s;margin-bottom:0.75rem;font-weight:500;
+}
+.auth-btn:hover{opacity:0.85;}
+.auth-btn.google{
+  background:var(--card);border:1px solid var(--border);color:var(--text);
+  display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.auth-btn.google:hover{border-color:var(--text2);}
+.auth-switch{font-size:0.82rem;color:var(--text2);cursor:pointer;margin-top:0.5rem;}
+.auth-switch span{color:var(--accent);text-decoration:underline;}
+.auth-err{font-size:0.8rem;color:#e05c5c;margin:-0.3rem 0 0.6rem;min-height:1.2em;}
+.auth-divider{display:flex;align-items:center;gap:8px;margin:0.75rem 0;color:var(--text3);font-size:0.78rem;}
+.auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* ── App ── */
+#app-screen{display:none;flex-direction:column;flex:1;}
+
+header{
+  padding:0.9rem 1.5rem;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;background:var(--surface);
+  position:sticky;top:0;z-index:50;
+}
+header h1{font-family:'Space Mono',monospace;font-size:1rem;letter-spacing:2px;color:var(--accent);flex:1;}
+.user-area{display:flex;align-items:center;gap:10px;}
+.user-avatar{
+  width:32px;height:32px;border-radius:50%;background:var(--card);
+  display:flex;align-items:center;justify-content:center;
+  font-size:0.8rem;font-weight:700;color:var(--accent);
+  border:1.5px solid var(--border);overflow:hidden;flex-shrink:0;
+}
+.user-avatar img{width:100%;height:100%;object-fit:cover;}
+.user-name{font-size:0.82rem;color:var(--text2);max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.logout-btn{background:none;border:1px solid var(--border);color:var(--text3);padding:4px 12px;border-radius:20px;cursor:pointer;font-size:0.75rem;font-family:'Noto Sans TC',sans-serif;transition:all 0.2s;}
+.logout-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+.layout{display:grid;grid-template-columns:320px 1fr;flex:1;height:calc(100vh - 57px);overflow:hidden;}
+
+/* ── Sidebar ── */
+.sidebar{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+.sidebar-tabs{display:flex;border-bottom:1px solid var(--border);}
+.tab-btn{flex:1;padding:0.85rem;background:none;border:none;color:var(--text2);font-size:0.8rem;cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:all 0.2s;border-bottom:2px solid transparent;}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+.tab-btn:hover{color:var(--text);background:rgba(255,255,255,0.02);}
+.tab-panel{display:none;flex:1;flex-direction:column;overflow:hidden;}
+.tab-panel.active{display:flex;}
+
+.pl-header{padding:0.9rem 1rem 0.5rem;display:flex;justify-content:space-between;align-items:center;}
+.pl-header span{font-size:0.78rem;color:var(--text2);}
+.btn-sm{background:var(--accent);color:#fff;border:none;padding:4px 12px;border-radius:20px;font-size:0.75rem;cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:opacity 0.2s;}
+.btn-sm:hover{opacity:0.8;}
+.btn-sm.ghost{background:transparent;border:1px solid var(--border);color:var(--text2);}
+.btn-sm.ghost:hover{border-color:var(--accent);color:var(--accent);}
+
+.playlists-list{overflow-y:auto;flex:1;padding:0.4rem;}
+.pl-item{padding:0.7rem 0.9rem;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:9px;transition:background 0.15s;margin-bottom:2px;}
+.pl-item:hover{background:var(--card);}
+.pl-item.active{background:rgba(224,92,92,0.1);}
+.pl-icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1rem;background:var(--card);flex-shrink:0;}
+.pl-info{flex:1;min-width:0;}
+.pl-name{font-size:0.85rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pl-count{font-size:0.72rem;color:var(--text3);margin-top:2px;}
+.pl-actions{opacity:0;transition:opacity 0.15s;display:flex;gap:3px;}
+.pl-item:hover .pl-actions{opacity:1;}
+.icon-btn{background:none;border:none;color:var(--text3);cursor:pointer;padding:3px 6px;border-radius:4px;font-size:0.85rem;transition:color 0.15s;}
+.icon-btn:hover{color:var(--text);}
+
+.songs-hd{padding:0.9rem 1rem 0.5rem;border-bottom:1px solid var(--border);}
+.songs-hd h3{font-size:0.9rem;font-weight:500;}
+.songs-hd p{font-size:0.75rem;color:var(--text2);margin-top:3px;}
+.songs-actions{display:flex;gap:5px;margin-top:8px;}
+.songs-list{overflow-y:auto;flex:1;}
+
+.song-item{padding:0.6rem 1rem;display:flex;align-items:center;gap:9px;cursor:pointer;transition:background 0.15s;border-left:3px solid transparent;}
+.song-item:hover{background:rgba(255,255,255,0.02);}
+.song-item.playing{background:rgba(224,92,92,0.07);border-left-color:var(--accent);}
+.song-num{width:18px;text-align:center;font-size:0.75rem;color:var(--text3);font-family:'Space Mono',monospace;flex-shrink:0;}
+.song-item.playing .song-num{color:var(--accent);}
+.song-thumb{width:40px;height:26px;border-radius:4px;background:var(--card);object-fit:cover;flex-shrink:0;}
+.song-info{flex:1;min-width:0;}
+.song-title{font-size:0.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.song-item.playing .song-title{color:var(--accent);}
+.song-del{background:none;border:none;color:var(--text3);cursor:pointer;opacity:0;transition:opacity 0.15s,color 0.15s;padding:2px 5px;font-size:0.85rem;border-radius:4px;}
+.song-item:hover .song-del{opacity:1;}
+.song-del:hover{color:var(--accent);}
+.no-embed-tag{color:#e05c5c;font-size:0.68rem;margin-left:4px;}
+
+/* ── Player ── */
+.player-main{display:flex;flex-direction:column;overflow:hidden;background:var(--bg);}
+.yt-area{position:relative;background:#000;flex-shrink:0;}
+#yt-player{display:block;width:100%;aspect-ratio:16/9;max-height:52vh;border:none;}
+.cover-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 50%,var(--bg) 100%);pointer-events:none;}
+
+.now-playing{padding:1.2rem 1.8rem 0.8rem;display:flex;align-items:flex-start;gap:1rem;}
+.np-info{flex:1;}
+.np-title{font-size:1.1rem;font-weight:700;line-height:1.35;margin-bottom:4px;}
+.np-sub{font-size:0.82rem;color:var(--text2);}
+.status-badge{display:inline-block;background:rgba(224,92,92,0.15);color:var(--accent);font-size:0.7rem;padding:2px 8px;border-radius:20px;margin-left:6px;font-family:'Space Mono',monospace;}
+.status-badge.pause{background:rgba(139,144,168,0.1);color:var(--text2);}
+
+.prog-area{padding:0 1.8rem;}
+.prog-wrap{height:4px;background:var(--border);border-radius:2px;cursor:pointer;position:relative;margin-bottom:5px;transition:height 0.15s;}
+.prog-wrap:hover{height:6px;}
+.prog-fill{height:100%;background:var(--accent);border-radius:2px;pointer-events:none;}
+.prog-times{display:flex;justify-content:space-between;font-size:0.72rem;color:var(--text3);font-family:'Space Mono',monospace;}
+
+.controls{padding:0.9rem 1.8rem 1.3rem;display:flex;align-items:center;gap:0.9rem;}
+.ctrl-btn{background:none;border:none;color:var(--text2);cursor:pointer;font-size:1.3rem;padding:7px;border-radius:50%;transition:color 0.15s,transform 0.1s;line-height:1;}
+.ctrl-btn:hover{color:var(--text);transform:scale(1.1);}
+.ctrl-btn.active{color:var(--accent);}
+.ctrl-btn.play-main{width:48px;height:48px;background:var(--accent);color:#fff;font-size:1.3rem;display:flex;align-items:center;justify-content:center;box-shadow:var(--glow);}
+.ctrl-btn.play-main:hover{transform:scale(1.05);color:#fff;}
+.vol-wrap{display:flex;align-items:center;gap:6px;margin-left:auto;}
+.vol-icon{font-size:0.95rem;color:var(--text2);}
+input[type=range]{-webkit-appearance:none;width:75px;height:4px;background:var(--border);border-radius:2px;outline:none;cursor:pointer;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;background:var(--text);border-radius:50%;}
+
+/* ── Modals ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:100;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1.6rem;width:460px;max-width:95vw;}
+.modal h3{font-size:0.95rem;margin-bottom:1.1rem;}
+.modal label{font-size:0.78rem;color:var(--text2);display:block;margin-bottom:5px;}
+.modal input,.modal select{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.6rem 0.85rem;color:var(--text);font-size:0.88rem;font-family:'Noto Sans TC',sans-serif;margin-bottom:0.9rem;outline:none;transition:border-color 0.2s;}
+.modal input:focus,.modal select:focus{border-color:var(--accent);}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:0.3rem;}
+.btn-primary{background:var(--accent);color:#fff;border:none;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:0.85rem;font-family:'Noto Sans TC',sans-serif;transition:opacity 0.2s;}
+.btn-primary:hover{opacity:0.85;}
+.btn-cancel{background:none;border:1px solid var(--border);color:var(--text2);padding:8px 18px;border-radius:8px;cursor:pointer;font-size:0.85rem;font-family:'Noto Sans TC',sans-serif;transition:all 0.2s;}
+.btn-cancel:hover{border-color:var(--text2);color:var(--text);}
+
+.embed-status{font-size:0.78rem;margin:-0.5rem 0 0.7rem;min-height:1.2em;padding:0 2px;}
+.checkbox-list{max-height:150px;overflow-y:auto;margin-bottom:0.9rem;}
+.checkbox-item{display:flex;align-items:center;gap:8px;padding:5px 0;cursor:pointer;font-size:0.85rem;}
+.checkbox-item input[type=checkbox]{accent-color:var(--accent);margin:0;width:auto;}
+
+.empty-hint{text-align:center;padding:2.5rem 1rem;color:var(--text3);font-size:0.85rem;line-height:1.8;}
+.empty-hint .big{font-size:1.8rem;margin-bottom:0.4rem;}
+
+/* Loading */
+#loading-overlay{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200;gap:1rem;}
+#loading-overlay .logo{font-size:2rem;}
+#loading-overlay p{font-size:0.85rem;color:var(--text2);}
+.spinner{width:28px;height:28px;border:2.5px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+@media(max-width:700px){
+  .layout{grid-template-columns:1fr;grid-template-rows:1fr auto;}
+  .sidebar{height:42vh;border-right:none;border-top:1px solid var(--border);order:2;}
+  .player-main{order:1;}
+  .user-name{display:none;}
+}
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loading-overlay">
+  <div class="logo">🎵</div>
+  <div class="spinner"></div>
+  <p>載入中…</p>
+</div>
+
+<!-- Auth Screen -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">🎵</div>
+    <div class="auth-title">YT PLAYER</div>
+    <div class="auth-sub">個人音樂歌單・無廣告・連續播放</div>
+
+   
+
+    <div id="auth-mode-login">
+      <input class="auth-input" type="email" id="email-input" placeholder="電子郵件">
+      <input class="auth-input" type="password" id="pwd-input" placeholder="密碼">
+      <div class="auth-err" id="auth-err"></div>
+      <button class="auth-btn" onclick="loginEmail()">登入</button>
+      <div class="auth-switch">還沒有帳號？<span onclick="switchAuthMode('register')">立即註冊</span></div>
+    </div>
+
+    <div id="auth-mode-register" style="display:none">
+      <input class="auth-input" type="text" id="name-input" placeholder="顯示名稱">
+      <input class="auth-input" type="email" id="reg-email-input" placeholder="電子郵件">
+      <input class="auth-input" type="password" id="reg-pwd-input" placeholder="密碼（至少 6 位）">
+      <div class="auth-err" id="reg-auth-err"></div>
+      <button class="auth-btn" onclick="registerEmail()">建立帳號</button>
+      <div class="auth-switch">已有帳號？<span onclick="switchAuthMode('login')">返回登入</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- App Screen -->
+<div id="app-screen">
+  <header>
+    <span style="font-size:1.2rem">🎵</span>
+    <h1>YT PLAYER</h1>
+    <div class="user-area">
+      <div class="user-avatar" id="user-avatar">?</div>
+      <span class="user-name" id="user-name-display"></span>
+      <button class="logout-btn" onclick="logout()">登出</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-tabs">
+        <button class="tab-btn active" onclick="switchTab('playlists')">歌單</button>
+        <button class="tab-btn" onclick="switchTab('songs')">曲目 <span id="pl-song-badge"></span></button>
+      </div>
+
+      <!-- Playlists tab -->
+      <div class="tab-panel active" id="tab-playlists">
+        <div class="pl-header">
+          <span id="pl-count">0 個歌單</span>
+          <div style="display:flex;gap:5px">
+            <button class="btn-sm ghost" onclick="openMergeModal()">合併</button>
+            <button class="btn-sm" onclick="openNewPlModal()">＋ 新增</button>
+          </div>
+        </div>
+        <div class="playlists-list" id="playlists-list">
+          <div class="empty-hint"><div class="spinner" style="margin:0 auto 1rem"></div>載入歌單中…</div>
+        </div>
+      </div>
+
+      <!-- Songs tab -->
+      <div class="tab-panel" id="tab-songs">
+        <div class="songs-hd">
+          <h3 id="cur-pl-name">請選擇歌單</h3>
+          <p id="cur-pl-desc">點左側歌單檢視曲目</p>
+          <div class="songs-actions">
+            <button class="btn-sm" onclick="openAddSongModal()">＋ 加歌</button>
+            <button class="btn-sm ghost" onclick="shufflePlay()">隨機</button>
+            <button class="btn-sm ghost" onclick="playAll()">全部播放</button>
+          </div>
+        </div>
+        <div class="songs-list" id="songs-list"></div>
+      </div>
+    </div>
+
+    <!-- Player -->
+    <div class="player-main">
+      <div class="yt-area">
+        <div id="yt-player"></div>
+        <div class="cover-overlay"></div>
+      </div>
+      <div class="now-playing">
+        <div class="np-info">
+          <div class="np-title" id="np-title">尚未播放</div>
+          <div class="np-sub">
+            <span id="np-playlist">—</span>
+            <span class="status-badge pause" id="status-badge">暫停</span>
+          </div>
+        </div>
+      </div>
+      <div class="prog-area">
+        <div class="prog-wrap" id="prog-wrap" onclick="seekTo(event)">
+          <div class="prog-fill" id="prog-fill" style="width:0%"></div>
+        </div>
+        <div class="prog-times">
+          <span id="time-cur">0:00</span>
+          <span id="time-tot">0:00</span>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="ctrl-btn" onclick="prevSong()">⏮</button>
+        <button class="ctrl-btn play-main" id="play-btn" onclick="togglePlay()">▶</button>
+        <button class="ctrl-btn" onclick="nextSong()">⏭</button>
+        <button class="ctrl-btn" id="repeat-btn" onclick="toggleRepeat()">🔁</button>
+        <button class="ctrl-btn" id="shuffle-btn" onclick="toggleShuffle()">🔀</button>
+        <div class="vol-wrap">
+          <span class="vol-icon">🔊</span>
+          <input type="range" min="0" max="100" value="80" id="vol-slider" oninput="setVolume(this.value)">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modals -->
+<div class="modal-overlay" id="modal-new-pl">
+  <div class="modal">
+    <h3>📂 建立新歌單</h3>
+    <label>歌單名稱</label>
+    <input type="text" id="new-pl-name" placeholder="例：我的最愛、輕音樂…">
+    <label>說明（選填）</label>
+    <input type="text" id="new-pl-desc" placeholder="簡短描述">
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('modal-new-pl')">取消</button>
+      <button class="btn-primary" onclick="createPlaylist()">建立</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-add-song">
+  <div class="modal">
+    <h3>🎵 加入歌曲</h3>
+    <label>YouTube 網址或影片 ID</label>
+    <input type="text" id="song-url" placeholder="https://www.youtube.com/watch?v=... 或直接貼 ID" oninput="onUrlInput(this.value)">
+    <div class="embed-status" id="embed-status"></div>
+    <label>歌曲名稱（選填）</label>
+    <input type="text" id="song-name" placeholder="留空自動填入">
+    <label>加入到歌單</label>
+    <select id="song-target-pl"></select>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('modal-add-song')">取消</button>
+      <button class="btn-primary" onclick="addSong()">加入</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-merge">
+  <div class="modal">
+    <h3>🔗 合併歌單</h3>
+    <label>選擇要合併的歌單（可多選）</label>
+    <div class="checkbox-list" id="merge-list"></div>
+    <label>合併後名稱</label>
+    <input type="text" id="merge-pl-name" placeholder="例：混合歌單">
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('modal-merge')">取消</button>
+      <button class="btn-primary" onclick="mergePlaylists()">合併</button>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase SDKs -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, doc, addDoc, getDocs, deleteDoc, updateDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// ════════════════════════════════
+// 🔧 貼上你的 Firebase 設定
+// ════════════════════════════════
+const firebaseConfig = {
+    apiKey: "AIzaSyAlpRgIpIC9Lj4R7G8d5jEk8TkD5XdA_8E",
+    authDomain: "player-98bf0.firebaseapp.com",
+    projectId: "player-98bf0",
+    storageBucket: "player-98bf0.firebasestorage.app",
+    messagingSenderId: "426745984827",
+    appId: "1:426745984827:web:dd24aac8090ccf3c46e91e"
+};
+// ════════════════════════════════
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const googleProvider = new GoogleAuthProvider();
+
+let currentUser = null;
+let playlists = [];
+let currentPlIdx = -1;
+let currentSongIdx = -1;
+let queue = [];
+let queueIdx = -1;
+let isPlaying = false;
+let repeatMode = 0;
+let shuffleOn = false;
+let ytPlayer = null;
+let progTimer = null;
+let errorHandling = false;
+let embedCheckTimer = null;
+let lastCheckedVid = null;
+let lastEmbedOk = null;
+let unsubscribePlaylists = null;
+
+// ── Auth state ───────────────────────────────────────
+onAuthStateChanged(auth, user => {
+  document.getElementById('loading-overlay').style.display = 'none';
+  if (user) {
+    currentUser = user;
+    showApp();
+  } else {
+    currentUser = null;
+    showAuth();
+  }
+});
+
+function showAuth() {
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('app-screen').style.display = 'none';
+  if (unsubscribePlaylists) { unsubscribePlaylists(); unsubscribePlaylists = null; }
+}
+
+function showApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'flex';
+  // User avatar
+  const av = document.getElementById('user-avatar');
+  const nameEl = document.getElementById('user-name-display');
+  if (currentUser.photoURL) {
+    av.innerHTML = `<img src="${currentUser.photoURL}" alt="">`;
+  } else {
+    av.textContent = (currentUser.displayName || currentUser.email || '?')[0].toUpperCase();
+  }
+  nameEl.textContent = currentUser.displayName || currentUser.email;
+  listenPlaylists();
+}
+
+// ── Auth actions ─────────────────────────────────────
+window.loginGoogle = async () => {
+  try { await signInWithPopup(auth, googleProvider); }
+  catch(e) { showAuthErr(e.message); }
+};
+
+window.loginEmail = async () => {
+  const email = document.getElementById('email-input').value.trim();
+  const pwd = document.getElementById('pwd-input').value;
+  try { await signInWithEmailAndPassword(auth, email, pwd); }
+  catch(e) { showAuthErr(friendlyErr(e.code)); }
+};
+
+window.registerEmail = async () => {
+  const name = document.getElementById('name-input').value.trim();
+  const email = document.getElementById('reg-email-input').value.trim();
+  const pwd = document.getElementById('reg-pwd-input').value;
+  if (!name) { showAuthErr('請輸入顯示名稱', true); return; }
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email, pwd);
+    await updateProfile(cred.user, { displayName: name });
+  } catch(e) { showAuthErr(friendlyErr(e.code), true); }
+};
+
+window.logout = async () => {
+  playlists = []; currentPlIdx = -1; currentSongIdx = -1; queue = [];
+  if (ytPlayer) ytPlayer.stopVideo();
+  await signOut(auth);
+};
+
+window.switchAuthMode = (mode) => {
+  document.getElementById('auth-mode-login').style.display = mode==='login' ? 'block' : 'none';
+  document.getElementById('auth-mode-register').style.display = mode==='register' ? 'block' : 'none';
+};
+
+function showAuthErr(msg, isReg=false) {
+  document.getElementById(isReg ? 'reg-auth-err' : 'auth-err').textContent = msg;
+}
+
+function friendlyErr(code) {
+  const map = {
+    'auth/user-not-found': '找不到此帳號',
+    'auth/wrong-password': '密碼錯誤',
+    'auth/email-already-in-use': '此 Email 已被使用',
+    'auth/weak-password': '密碼至少需要 6 個字元',
+    'auth/invalid-email': '請輸入有效的 Email',
+    'auth/invalid-credential': '帳號或密碼錯誤',
+  };
+  return map[code] || '發生錯誤，請再試一次';
+}
+
+// ── Firestore ─────────────────────────────────────────
+function plRef() {
+  return collection(db, 'users', currentUser.uid, 'playlists');
+}
+
+function listenPlaylists() {
+  if (unsubscribePlaylists) unsubscribePlaylists();
+  const q = query(plRef(), orderBy('createdAt', 'asc'));
+  unsubscribePlaylists = onSnapshot(q, snap => {
+    playlists = snap.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
+    renderPlaylists();
+    if (currentPlIdx >= 0) renderSongs();
+  });
+}
+
+window.createPlaylist = async () => {
+  const name = document.getElementById('new-pl-name').value.trim();
+  if (!name) { alert('請輸入歌單名稱'); return; }
+  const desc = document.getElementById('new-pl-desc').value.trim();
+  await addDoc(plRef(), { name, desc, songs: [], createdAt: serverTimestamp() });
+  closeModal('modal-new-pl');
+  // select newly created (will come from snapshot)
+  setTimeout(() => selectPlaylist(playlists.length - 1), 400);
+};
+
+window.deletePlaylist = async (e, idx) => {
+  e.stopPropagation();
+  if (!confirm(`確定刪除「${playlists[idx].name}」？`)) return;
+  await deleteDoc(doc(db, 'users', currentUser.uid, 'playlists', playlists[idx].firestoreId));
+  if (currentPlIdx === idx) currentPlIdx = -1;
+};
+
+async function saveSongs(plIdx) {
+  const pl = playlists[plIdx];
+  await updateDoc(doc(db, 'users', currentUser.uid, 'playlists', pl.firestoreId), { songs: pl.songs });
+}
+
+window.addSong = async () => {
+  const raw = document.getElementById('song-url').value.trim();
+  const vid = extractVideoId(raw);
+  if (!vid) { alert('請輸入有效的 YouTube 網址或影片 ID'); return; }
+  if (lastEmbedOk === false) {
+    if (!confirm('⚠️ 此影片不允許嵌入，加入後播放時會在 YouTube 開啟。\n確定加入嗎？')) return;
+  }
+  const name = document.getElementById('song-name').value.trim() || '未命名 (' + vid + ')';
+  const plIdx = parseInt(document.getElementById('song-target-pl').value);
+  const song = { id: uid(), vid, title: name, embedOk: lastEmbedOk };
+  playlists[plIdx].songs.push(song);
+  await saveSongs(plIdx);
+  if (currentPlIdx === plIdx) renderSongs();
+  closeModal('modal-add-song');
+};
+
+window.removeSong = async (e, plIdx, songIdx) => {
+  e.stopPropagation();
+  playlists[plIdx].songs.splice(songIdx, 1);
+  if (currentSongIdx === songIdx) currentSongIdx = -1;
+  await saveSongs(plIdx);
+  renderSongs();
+};
+
+window.mergePlaylists = async () => {
+  const checked = [...document.querySelectorAll('#merge-list input:checked')].map(c => parseInt(c.value));
+  if (checked.length < 2) { alert('請選擇至少 2 個歌單'); return; }
+  const name = document.getElementById('merge-pl-name').value.trim() || '合併歌單';
+  const seen = new Set();
+  const songs = [];
+  checked.forEach(i => playlists[i].songs.forEach(s => {
+    if (!seen.has(s.vid)) { seen.add(s.vid); songs.push({ ...s, id: uid() }); }
+  }));
+  await addDoc(plRef(), { name, desc: `由 ${checked.length} 個歌單合併`, songs, createdAt: serverTimestamp() });
+  closeModal('modal-merge');
+};
+
+// ── YouTube API ───────────────────────────────────────
+window.onYouTubeIframeAPIReady = function() {
+  ytPlayer = new YT.Player('yt-player', {
+    height: '100%', width: '100%',
+    playerVars: { autoplay: 0, controls: 1, rel: 0, modestbranding: 1, iv_load_policy: 3, playsinline: 1 },
+    events: { onStateChange: onPlayerState, onReady: () => setVolume(80), onError: onPlayerError }
+  });
+  window.ytPlayer = ytPlayer; // 讓 visibilitychange 輔助腳本可存取
+};
+
+function onPlayerError(e) {
+  if (errorHandling) return;
+  const embedErrors = [101, 150, 153];
+  const song = (currentPlIdx >= 0 && currentSongIdx >= 0) ? playlists[currentPlIdx].songs[currentSongIdx] : null;
+  if (embedErrors.includes(e.data) && song) {
+    errorHandling = true;
+    ytPlayer.stopVideo();
+    ytPlayer.cueVideoById('');
+    showToast(`⚠️ 「${song.title}」不允許嵌入 → 已在 YouTube 開啟`, 5000);
+    window.open('https://www.youtube.com/watch?v=' + song.vid, '_blank');
+    isPlaying = false;
+    document.getElementById('play-btn').textContent = '▶';
+    document.getElementById('status-badge').textContent = '無法嵌入';
+    document.getElementById('status-badge').classList.add('pause');
+    setTimeout(() => { errorHandling = false; }, 2000);
+  } else {
+    const msgs = { 2: '影片 ID 無效', 5: '無法以 HTML5 播放', 100: '影片不存在或已刪除' };
+    showToast('⚠️ 播放錯誤：' + (msgs[e.data] || '代碼 ' + e.data));
+  }
+}
+
+function onPlayerState(e) {
+  if (errorHandling) return;
+  if (e.data === YT.PlayerState.PLAYING) {
+    isPlaying = true;
+    window._ytShouldPlay = true;
+    document.getElementById('play-btn').textContent = '⏸';
+    document.getElementById('status-badge').textContent = '播放中';
+    document.getElementById('status-badge').classList.remove('pause');
+    startProgress();
+    // 更新 iOS 鎖定畫面 / 控制中心資訊
+    const title = document.getElementById('np-title').textContent;
+    const artist = document.getElementById('np-playlist').textContent;
+    if (window.updateMediaSession) updateMediaSession(title, artist);
+    if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+  } else if (e.data === YT.PlayerState.PAUSED) {
+    isPlaying = false;
+    window._ytShouldPlay = false;
+    document.getElementById('play-btn').textContent = '▶';
+    document.getElementById('status-badge').textContent = '暫停';
+    document.getElementById('status-badge').classList.add('pause');
+    if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+  } else if (e.data === YT.PlayerState.ENDED) {
+    window._ytShouldPlay = false;
+    handleEnded();
+  }
+}
+
+function handleEnded() {
+  if (errorHandling) return;
+  if (repeatMode === 2) { ytPlayer.seekTo(0); ytPlayer.playVideo(); return; }
+  if (queueIdx < queue.length - 1) { queueIdx++; loadQueueItem(queueIdx); }
+  else if (repeatMode === 1) { queueIdx = 0; loadQueueItem(0); }
+}
+
+function loadQueueItem(idx) {
+  if (errorHandling) return;
+  const item = queue[idx];
+  if (!item) return;
+  currentPlIdx = item.plIdx;
+  currentSongIdx = item.songIdx;
+  const song = playlists[item.plIdx].songs[item.songIdx];
+  ytPlayer.loadVideoById(song.vid);
+  document.getElementById('np-title').textContent = song.title;
+  document.getElementById('np-playlist').textContent = playlists[item.plIdx].name;
+  // 更新 Media Session 讓鎖定畫面顯示新歌名
+  if (window.updateMediaSession) updateMediaSession(song.title, playlists[item.plIdx].name);
+  renderSongs();
+  switchTab('songs');
+}
+
+function startProgress() {
+  clearInterval(progTimer);
+  progTimer = setInterval(() => {
+    if (!ytPlayer || typeof ytPlayer.getCurrentTime !== 'function') return;
+    const cur = ytPlayer.getCurrentTime() || 0;
+    const dur = ytPlayer.getDuration() || 0;
+    document.getElementById('prog-fill').style.width = dur ? (cur / dur * 100) + '%' : '0%';
+    document.getElementById('time-cur').textContent = fmt(cur);
+    document.getElementById('time-tot').textContent = fmt(dur);
+  }, 500);
+}
+
+function fmt(s) { s = Math.floor(s); return Math.floor(s/60) + ':' + (s%60+'').padStart(2,'0'); }
+
+// ── Controls ──────────────────────────────────────────
+window.togglePlay = () => { if (!ytPlayer) return; isPlaying ? ytPlayer.pauseVideo() : ytPlayer.playVideo(); };
+window.prevSong = () => { if (queueIdx > 0) { queueIdx--; loadQueueItem(queueIdx); } };
+window.nextSong = () => { if (queueIdx < queue.length - 1) { queueIdx++; loadQueueItem(queueIdx); } };
+window.seekTo = (e) => {
+  if (!ytPlayer || typeof ytPlayer.getDuration !== 'function') return;
+  const rect = document.getElementById('prog-wrap').getBoundingClientRect();
+  ytPlayer.seekTo(ytPlayer.getDuration() * (e.clientX - rect.left) / rect.width, true);
+};
+window.setVolume = (v) => { if (ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(Number(v)); document.getElementById('vol-slider').value = v; };
+window.toggleRepeat = () => {
+  repeatMode = (repeatMode + 1) % 3;
+  const btn = document.getElementById('repeat-btn');
+  btn.classList.toggle('active', repeatMode > 0);
+  btn.textContent = repeatMode === 2 ? '🔂' : '🔁';
+};
+window.toggleShuffle = () => {
+  shuffleOn = !shuffleOn;
+  document.getElementById('shuffle-btn').classList.toggle('active', shuffleOn);
+};
+
+function buildQueue(plIdx, startSongIdx) {
+  const pl = playlists[plIdx];
+  if (!pl) return;
+  let indices = pl.songs.map((_, i) => i);
+  if (shuffleOn) indices.sort(() => Math.random() - 0.5);
+  queue = indices.map(i => ({ plIdx, songIdx: i }));
+  const si = queue.findIndex(q => q.songIdx === startSongIdx);
+  queueIdx = si >= 0 ? si : 0;
+}
+
+window.playSong = (plIdx, songIdx) => { buildQueue(plIdx, songIdx); loadQueueItem(queueIdx); };
+window.playAll = () => { if (currentPlIdx < 0) return; playSong(currentPlIdx, 0); };
+window.shufflePlay = () => {
+  if (currentPlIdx < 0) return;
+  shuffleOn = true;
+  document.getElementById('shuffle-btn').classList.add('active');
+  buildQueue(currentPlIdx, 0);
+  loadQueueItem(0);
+};
+
+// ── Embed check ───────────────────────────────────────
+window.onUrlInput = (val) => {
+  clearTimeout(embedCheckTimer);
+  const status = document.getElementById('embed-status');
+  const vid = extractVideoId(val.trim());
+  if (!vid) { status.innerHTML = ''; lastCheckedVid = null; lastEmbedOk = null; return; }
+  if (vid === lastCheckedVid) return;
+  status.innerHTML = '<span style="color:var(--text3)">⏳ 檢查嵌入權限中…</span>';
+  embedCheckTimer = setTimeout(() => checkEmbed(vid), 600);
+};
+
+function checkEmbed(vid) {
+  lastCheckedVid = vid;
+  fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${vid}&format=json`)
+    .then(r => r.ok ? r.json().then(d => onEmbedResult(true, d.title)) : onEmbedResult(false, null))
+    .catch(() => onEmbedResult(null, null));
+}
+
+function onEmbedResult(ok, title) {
+  lastEmbedOk = ok;
+  const s = document.getElementById('embed-status');
+  const nameInput = document.getElementById('song-name');
+  if (ok === true) {
+    s.innerHTML = '<span style="color:#4caf50">✅ 可以嵌入播放</span>';
+    if (title && !nameInput.value.trim()) nameInput.value = title;
+  } else if (ok === false) {
+    s.innerHTML = '<span style="color:#e05c5c">⚠️ 此影片禁止嵌入，播放時將開 YouTube</span>';
+  } else {
+    s.innerHTML = '<span style="color:var(--text3)">❓ 無法確認，仍可加入</span>';
+  }
+}
+
+// ── Render ────────────────────────────────────────────
+window.renderPlaylists = renderPlaylists;
+function renderPlaylists() {
+  const el = document.getElementById('playlists-list');
+  document.getElementById('pl-count').textContent = playlists.length + ' 個歌單';
+  if (playlists.length === 0) {
+    el.innerHTML = '<div class="empty-hint"><div class="big">🎵</div>尚無歌單<br>點「＋ 新增」建立第一個</div>';
+    return;
+  }
+  const icons = ['🎵','🎸','🎹','🎺','🥁','🎻','🎼','🎧'];
+  el.innerHTML = playlists.map((pl, i) => `
+    <div class="pl-item ${i===currentPlIdx?'active':''}" onclick="selectPlaylist(${i})">
+      <div class="pl-icon">${icons[i % icons.length]}</div>
+      <div class="pl-info">
+        <div class="pl-name">${esc(pl.name)}</div>
+        <div class="pl-count">${(pl.songs||[]).length} 首</div>
+      </div>
+      <div class="pl-actions">
+        <button class="icon-btn" onclick="deletePlaylist(event,${i})">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+window.selectPlaylist = (idx) => {
+  currentPlIdx = idx;
+  renderPlaylists();
+  renderSongs();
+  switchTab('songs');
+};
+
+function renderSongs() {
+  const el = document.getElementById('songs-list');
+  const badge = document.getElementById('pl-song-badge');
+  if (currentPlIdx < 0) {
+    document.getElementById('cur-pl-name').textContent = '請選擇歌單';
+    document.getElementById('cur-pl-desc').textContent = '點左側歌單即可檢視曲目';
+    el.innerHTML = '<div class="empty-hint"><div class="big">👈</div>請先選擇歌單</div>';
+    badge.textContent = '';
+    return;
+  }
+  const pl = playlists[currentPlIdx];
+  document.getElementById('cur-pl-name').textContent = pl.name;
+  document.getElementById('cur-pl-desc').textContent = pl.desc || (pl.songs||[]).length + ' 首歌曲';
+  badge.textContent = (pl.songs||[]).length ? `(${pl.songs.length})` : '';
+  if (!pl.songs || pl.songs.length === 0) {
+    el.innerHTML = '<div class="empty-hint"><div class="big">🎵</div>歌單是空的<br>點「＋ 加歌」加入歌曲</div>';
+    return;
+  }
+  el.innerHTML = pl.songs.map((s, i) => `
+    <div class="song-item ${i===currentSongIdx && currentPlIdx===currentPlIdx?'playing':''}" onclick="playSong(${currentPlIdx},${i})">
+      <span class="song-num">${i===currentSongIdx?'♪':(i+1)}</span>
+      <img class="song-thumb" src="https://img.youtube.com/vi/${s.vid}/mqdefault.jpg" onerror="this.style.display='none'" loading="lazy">
+      <div class="song-info">
+        <div class="song-title">${esc(s.title)}${s.embedOk===false?'<span class="no-embed-tag">⚠️嵌入</span>':''}</div>
+      </div>
+      <button class="song-del" onclick="removeSong(event,${currentPlIdx},${i})">✕</button>
+    </div>`).join('');
+}
+
+// ── Modals ────────────────────────────────────────────
+window.openNewPlModal = () => {
+  document.getElementById('new-pl-name').value = '';
+  document.getElementById('new-pl-desc').value = '';
+  openModal('modal-new-pl');
+  setTimeout(() => document.getElementById('new-pl-name').focus(), 100);
+};
+
+window.openAddSongModal = () => {
+  if (playlists.length === 0) { alert('請先建立歌單'); return; }
+  document.getElementById('song-url').value = '';
+  document.getElementById('song-name').value = '';
+  document.getElementById('embed-status').innerHTML = '';
+  lastCheckedVid = null; lastEmbedOk = null;
+  const sel = document.getElementById('song-target-pl');
+  sel.innerHTML = playlists.map((pl, i) => `<option value="${i}" ${i===currentPlIdx?'selected':''}>${esc(pl.name)}</option>`).join('');
+  openModal('modal-add-song');
+  setTimeout(() => document.getElementById('song-url').focus(), 100);
+};
+
+window.openMergeModal = () => {
+  if (playlists.length < 2) { alert('需要至少 2 個歌單才能合併'); return; }
+  document.getElementById('merge-list').innerHTML = playlists.map((pl, i) => `
+    <label class="checkbox-item"><input type="checkbox" value="${i}"> ${esc(pl.name)} (${(pl.songs||[]).length}首)</label>`).join('');
+  document.getElementById('merge-pl-name').value = '';
+  openModal('modal-merge');
+};
+
+window.openModal = openModal;
+window.closeModal = closeModal;
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); }));
+
+// ── Tab ───────────────────────────────────────────────
+window.switchTab = (name) => {
+  document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', ['playlists','songs'][i] === name));
+  document.querySelectorAll('.tab-panel').forEach((p, i) => p.classList.toggle('active', ['tab-playlists','tab-songs'][i] === 'tab-' + name));
+};
+
+// ── Helpers ───────────────────────────────────────────
+function uid() { return Math.random().toString(36).slice(2, 9); }
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function extractVideoId(url) {
+  url = url.trim();
+  const patterns = [/[?&]v=([A-Za-z0-9_-]{11})/, /\/live\/([A-Za-z0-9_-]{11})/, /\/embed\/([A-Za-z0-9_-]{11})/, /\/v\/([A-Za-z0-9_-]{11})/, /youtu\.be\/([A-Za-z0-9_-]{11})/, /\/shorts\/([A-Za-z0-9_-]{11})/, /^([A-Za-z0-9_-]{11})$/];
+  for (const p of patterns) { const m = url.match(p); if (m) return m[1]; }
+  return null;
+}
+
+function showToast(msg, dur=3500) {
+  let t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div'); t.id = 'toast';
+    t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1e2230;border:1px solid #2a2f40;color:#eef0f5;padding:10px 20px;border-radius:10px;font-size:0.83rem;z-index:999;opacity:0;transition:opacity 0.3s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center;';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg; t.style.opacity = '1';
+  clearTimeout(t._t); t._t = setTimeout(() => t.style.opacity = '0', dur);
+}
+
+// Keyboard
+document.addEventListener('keydown', e => {
+  if (['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) return;
+  if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+  if (e.code === 'ArrowRight') nextSong();
+  if (e.code === 'ArrowLeft') prevSong();
+});
+</script>
+
+<script src="https://www.youtube.com/iframe_api"></script>
+
+<script>
+// ── iOS 背景播放輔助 ──────────────────────────────────
+// 1) 偵測畫面重新顯示時，若應播放則自動恢復
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    // 稍等一下讓 iOS 恢復 iframe
+    setTimeout(() => {
+      try {
+        if (window._ytShouldPlay && window.ytPlayer && typeof window.ytPlayer.getPlayerState === 'function') {
+          const state = window.ytPlayer.getPlayerState();
+          // 若 iOS 讓它暫停了（state=2），自動恢復
+          if (state === 2) {
+            window.ytPlayer.playVideo();
+          }
+        }
+      } catch(e) {}
+    }, 600);
+  } else {
+    // 記錄離開時是否正在播放
+    try {
+      if (window.ytPlayer && typeof window.ytPlayer.getPlayerState === 'function') {
+        window._ytShouldPlay = (window.ytPlayer.getPlayerState() === 1);
+      }
+    } catch(e) {}
+  }
+});
+
+// 2) Media Session API：讓 iOS 鎖定畫面 / 控制中心顯示播放資訊與按鈕
+function updateMediaSession(title, artist) {
+  if (!('mediaSession' in navigator)) return;
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: title || '播放中',
+    artist: artist || 'YT Player',
+    album: 'YT Player',
+    artwork: [{ src: 'https://yijuchen243.github.io/player/icon-192.png', sizes: '192x192', type: 'image/png' }]
+  });
+  navigator.mediaSession.setActionHandler('play', () => {
+    try { window.ytPlayer && window.ytPlayer.playVideo(); } catch(e) {}
+  });
+  navigator.mediaSession.setActionHandler('pause', () => {
+    try { window.ytPlayer && window.ytPlayer.pauseVideo(); } catch(e) {}
+  });
+  navigator.mediaSession.setActionHandler('previoustrack', () => {
+    try { window.prevSong && window.prevSong(); } catch(e) {}
+  });
+  navigator.mediaSession.setActionHandler('nexttrack', () => {
+    try { window.nextSong && window.nextSong(); } catch(e) {}
+  });
+}
+
+// 讓 updateMediaSession 可被主程式呼叫
+window.updateMediaSession = updateMediaSession;
+</script>
+</body>
+</html>
