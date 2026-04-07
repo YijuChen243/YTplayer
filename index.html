@@ -4,11 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🎵 YT Player</title>
-<!-- iOS PWA 背景音訊支援 -->
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="YT Player">
-<meta name="mobile-web-app-capable" content="yes">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -224,9 +219,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;heigh
     <div class="auth-logo">🎵</div>
     <div class="auth-title">YT PLAYER</div>
     <div class="auth-sub">個人音樂歌單・無廣告・連續播放</div>
-
-   
-
+    
     <div id="auth-mode-login">
       <input class="auth-input" type="email" id="email-input" placeholder="電子郵件">
       <input class="auth-input" type="password" id="pwd-input" placeholder="密碼">
@@ -583,10 +576,9 @@ window.mergePlaylists = async () => {
 window.onYouTubeIframeAPIReady = function() {
   ytPlayer = new YT.Player('yt-player', {
     height: '100%', width: '100%',
-    playerVars: { autoplay: 0, controls: 1, rel: 0, modestbranding: 1, iv_load_policy: 3, playsinline: 1 },
+    playerVars: { autoplay: 0, controls: 1, rel: 0, modestbranding: 1, iv_load_policy: 3 },
     events: { onStateChange: onPlayerState, onReady: () => setVolume(80), onError: onPlayerError }
   });
-  window.ytPlayer = ytPlayer; // 讓 visibilitychange 輔助腳本可存取
 };
 
 function onPlayerError(e) {
@@ -614,25 +606,16 @@ function onPlayerState(e) {
   if (errorHandling) return;
   if (e.data === YT.PlayerState.PLAYING) {
     isPlaying = true;
-    window._ytShouldPlay = true;
     document.getElementById('play-btn').textContent = '⏸';
     document.getElementById('status-badge').textContent = '播放中';
     document.getElementById('status-badge').classList.remove('pause');
     startProgress();
-    // 更新 iOS 鎖定畫面 / 控制中心資訊
-    const title = document.getElementById('np-title').textContent;
-    const artist = document.getElementById('np-playlist').textContent;
-    if (window.updateMediaSession) updateMediaSession(title, artist);
-    if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
   } else if (e.data === YT.PlayerState.PAUSED) {
     isPlaying = false;
-    window._ytShouldPlay = false;
     document.getElementById('play-btn').textContent = '▶';
     document.getElementById('status-badge').textContent = '暫停';
     document.getElementById('status-badge').classList.add('pause');
-    if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
   } else if (e.data === YT.PlayerState.ENDED) {
-    window._ytShouldPlay = false;
     handleEnded();
   }
 }
@@ -650,12 +633,17 @@ function loadQueueItem(idx) {
   if (!item) return;
   currentPlIdx = item.plIdx;
   currentSongIdx = item.songIdx;
+  
   const song = playlists[item.plIdx].songs[item.songIdx];
+  const plName = playlists[item.plIdx].name; // 取得歌單名稱
+  
   ytPlayer.loadVideoById(song.vid);
   document.getElementById('np-title').textContent = song.title;
-  document.getElementById('np-playlist').textContent = playlists[item.plIdx].name;
-  // 更新 Media Session 讓鎖定畫面顯示新歌名
-  if (window.updateMediaSession) updateMediaSession(song.title, playlists[item.plIdx].name);
+  document.getElementById('np-playlist').textContent = plName;
+  
+  // 呼叫 Media Session 更新 iOS 控制中心資訊
+  updateMediaSession(song, plName); 
+
   renderSongs();
   switchTab('songs');
 }
@@ -673,7 +661,33 @@ function startProgress() {
 }
 
 function fmt(s) { s = Math.floor(s); return Math.floor(s/60) + ':' + (s%60+'').padStart(2,'0'); }
+// ── Media Session API (背景播放支援) ─────────────────────────
+function updateMediaSession(song, plName) {
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: song.title,
+      artist: plName || 'YT Player',
+      album: '個人音樂歌單',
+      artwork: [
+        { src: `https://img.youtube.com/vi/${song.vid}/hqdefault.jpg`, sizes: '480x360', type: 'image/jpeg' }
+      ]
+    });
 
+    // 綁定 iOS 控制中心的播放按鈕
+    navigator.mediaSession.setActionHandler('play', () => {
+      if(ytPlayer) ytPlayer.playVideo();
+    });
+    navigator.mediaSession.setActionHandler('pause', () => {
+      if(ytPlayer) ytPlayer.pauseVideo();
+    });
+    navigator.mediaSession.setActionHandler('previoustrack', () => {
+      prevSong();
+    });
+    navigator.mediaSession.setActionHandler('nexttrack', () => {
+      nextSong();
+    });
+  }
+}
 // ── Controls ──────────────────────────────────────────
 window.togglePlay = () => { if (!ytPlayer) return; isPlaying ? ytPlayer.pauseVideo() : ytPlayer.playVideo(); };
 window.prevSong = () => { if (queueIdx > 0) { queueIdx--; loadQueueItem(queueIdx); } };
@@ -879,59 +893,5 @@ document.addEventListener('keydown', e => {
 </script>
 
 <script src="https://www.youtube.com/iframe_api"></script>
-
-<script>
-// ── iOS 背景播放輔助 ──────────────────────────────────
-// 1) 偵測畫面重新顯示時，若應播放則自動恢復
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') {
-    // 稍等一下讓 iOS 恢復 iframe
-    setTimeout(() => {
-      try {
-        if (window._ytShouldPlay && window.ytPlayer && typeof window.ytPlayer.getPlayerState === 'function') {
-          const state = window.ytPlayer.getPlayerState();
-          // 若 iOS 讓它暫停了（state=2），自動恢復
-          if (state === 2) {
-            window.ytPlayer.playVideo();
-          }
-        }
-      } catch(e) {}
-    }, 600);
-  } else {
-    // 記錄離開時是否正在播放
-    try {
-      if (window.ytPlayer && typeof window.ytPlayer.getPlayerState === 'function') {
-        window._ytShouldPlay = (window.ytPlayer.getPlayerState() === 1);
-      }
-    } catch(e) {}
-  }
-});
-
-// 2) Media Session API：讓 iOS 鎖定畫面 / 控制中心顯示播放資訊與按鈕
-function updateMediaSession(title, artist) {
-  if (!('mediaSession' in navigator)) return;
-  navigator.mediaSession.metadata = new MediaMetadata({
-    title: title || '播放中',
-    artist: artist || 'YT Player',
-    album: 'YT Player',
-    artwork: [{ src: 'https://yijuchen243.github.io/player/icon-192.png', sizes: '192x192', type: 'image/png' }]
-  });
-  navigator.mediaSession.setActionHandler('play', () => {
-    try { window.ytPlayer && window.ytPlayer.playVideo(); } catch(e) {}
-  });
-  navigator.mediaSession.setActionHandler('pause', () => {
-    try { window.ytPlayer && window.ytPlayer.pauseVideo(); } catch(e) {}
-  });
-  navigator.mediaSession.setActionHandler('previoustrack', () => {
-    try { window.prevSong && window.prevSong(); } catch(e) {}
-  });
-  navigator.mediaSession.setActionHandler('nexttrack', () => {
-    try { window.nextSong && window.nextSong(); } catch(e) {}
-  });
-}
-
-// 讓 updateMediaSession 可被主程式呼叫
-window.updateMediaSession = updateMediaSession;
-</script>
 </body>
 </html>
