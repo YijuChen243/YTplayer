@@ -572,96 +572,39 @@ window.mergePlaylists = async () => {
   closeModal('modal-merge');
 };
 
-// ── YouTube API ───────────────────────────────────────
+// ── YouTube API 修正整合版 ───────────────────────────────────────
 window.onYouTubeIframeAPIReady = function() {
-  ytPlayer = new YT.Player('yt-player', {
-    height: '100%', width: '100%',
-    playerVars: { autoplay: 0, controls: 1, rel: 0, modestbranding: 1, iv_load_policy: 3 },
-    events: { onStateChange: onPlayerState, onReady: () => setVolume(80), onError: onPlayerError }
-  });
+    ytPlayer = new YT.Player('yt-player', {
+        height: '100%', 
+        width: '100%',
+        playerVars: { 
+            'autoplay': 0, 
+            'controls': 1, 
+            'rel': 0, 
+            'modestbranding': 1, 
+            'iv_load_policy:': 3,
+            'playsinline': 1  // 關鍵：防止 iPhone 自動跳出全螢幕
+        },
+        events: { 
+            'onStateChange': onPlayerState, 
+            'onReady': () => {
+                setVolume(80);
+                setupMediaSessionHandlers(); // 初始化背景控制連結
+            }, 
+            'onError': onPlayerError 
+        }
+    });
 };
-// 在 playerVars 裡面一定要有 playsinline: 1
-player = new YT.Player('player', {
-    height: '360',
-    width: '640',
-    videoId: '你的影片ID',
-    playerVars: {
-        'playsinline': 1,  // 就是這行！
-        'autoplay': 1,
-        'controls': 1
-    },
-    events: {
-        'onReady': onPlayerReady,
-        'onStateChange': onPlayerStateChange
+
+// 獨立出來的背景控制設定
+function setupMediaSessionHandlers() {
+    if ('mediaSession' in navigator) {
+        navigator.mediaSession.setActionHandler('play', () => { if(ytPlayer) ytPlayer.playVideo(); });
+        navigator.mediaSession.setActionHandler('pause', () => { if(ytPlayer) ytPlayer.pauseVideo(); });
+        navigator.mediaSession.setActionHandler('previoustrack', () => { prevSong(); });
+        navigator.mediaSession.setActionHandler('nexttrack', () => { nextSong(); });
     }
-});
-  // 加入這段來輔助 iOS 背景播放
-if ('mediaSession' in navigator) {
-  navigator.mediaSession.setActionHandler('play', () => player.playVideo());
-  navigator.mediaSession.setActionHandler('pause', () => player.pauseVideo());
 }
-function onPlayerError(e) {
-  if (errorHandling) return;
-  const embedErrors = [101, 150, 153];
-  const song = (currentPlIdx >= 0 && currentSongIdx >= 0) ? playlists[currentPlIdx].songs[currentSongIdx] : null;
-  if (embedErrors.includes(e.data) && song) {
-    errorHandling = true;
-    ytPlayer.stopVideo();
-    ytPlayer.cueVideoById('');
-    showToast(`⚠️ 「${song.title}」不允許嵌入 → 已在 YouTube 開啟`, 5000);
-    window.open('https://www.youtube.com/watch?v=' + song.vid, '_blank');
-    isPlaying = false;
-    document.getElementById('play-btn').textContent = '▶';
-    document.getElementById('status-badge').textContent = '無法嵌入';
-    document.getElementById('status-badge').classList.add('pause');
-    setTimeout(() => { errorHandling = false; }, 2000);
-  } else {
-    const msgs = { 2: '影片 ID 無效', 5: '無法以 HTML5 播放', 100: '影片不存在或已刪除' };
-    showToast('⚠️ 播放錯誤：' + (msgs[e.data] || '代碼 ' + e.data));
-  }
-}
-
-function onPlayerState(e) {
-  if (errorHandling) return;
-  if (e.data === YT.PlayerState.PLAYING) {
-    isPlaying = true;
-    document.getElementById('play-btn').textContent = '⏸';
-    document.getElementById('status-badge').textContent = '播放中';
-    document.getElementById('status-badge').classList.remove('pause');
-    startProgress();
-  } else if (e.data === YT.PlayerState.PAUSED) {
-    isPlaying = false;
-    document.getElementById('play-btn').textContent = '▶';
-    document.getElementById('status-badge').textContent = '暫停';
-    document.getElementById('status-badge').classList.add('pause');
-  } else if (e.data === YT.PlayerState.ENDED) {
-    handleEnded();
-  }
-}
-
-function handleEnded() {
-  if (errorHandling) return;
-  if (repeatMode === 2) { ytPlayer.seekTo(0); ytPlayer.playVideo(); return; }
-  if (queueIdx < queue.length - 1) { queueIdx++; loadQueueItem(queueIdx); }
-  else if (repeatMode === 1) { queueIdx = 0; loadQueueItem(0); }
-}
-
-function loadQueueItem(idx) {
-  if (errorHandling) return;
-  const item = queue[idx];
-  if (!item) return;
-  currentPlIdx = item.plIdx;
-  currentSongIdx = item.songIdx;
-  
-  const song = playlists[item.plIdx].songs[item.songIdx];
-  const plName = playlists[item.plIdx].name; // 取得歌單名稱
-  
-  ytPlayer.loadVideoById(song.vid);
-  document.getElementById('np-title').textContent = song.title;
-  document.getElementById('np-playlist').textContent = plName;
-  
-  // 呼叫 Media Session 更新 iOS 控制中心資訊
-  updateMediaSession(song, plName); 
 
   renderSongs();
   switchTab('songs');
