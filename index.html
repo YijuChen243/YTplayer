@@ -50,16 +50,9 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
   transition:opacity 0.2s;margin-bottom:0.75rem;font-weight:500;
 }
 .auth-btn:hover{opacity:0.85;}
-.auth-btn.google{
-  background:var(--card);border:1px solid var(--border);color:var(--text);
-  display:flex;align-items:center;justify-content:center;gap:8px;
-}
-.auth-btn.google:hover{border-color:var(--text2);}
 .auth-switch{font-size:0.82rem;color:var(--text2);cursor:pointer;margin-top:0.5rem;}
 .auth-switch span{color:var(--accent);text-decoration:underline;}
 .auth-err{font-size:0.8rem;color:#e05c5c;margin:-0.3rem 0 0.6rem;min-height:1.2em;}
-.auth-divider{display:flex;align-items:center;gap:8px;margin:0.75rem 0;color:var(--text3);font-size:0.78rem;}
-.auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:var(--border);}
 
 /* ── App ── */
 #app-screen{display:none;flex-direction:column;flex:1;}
@@ -81,6 +74,15 @@ header h1{font-family:'Space Mono',monospace;font-size:1rem;letter-spacing:2px;c
 .user-name{font-size:0.82rem;color:var(--text2);max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .logout-btn{background:none;border:1px solid var(--border);color:var(--text3);padding:4px 12px;border-radius:20px;cursor:pointer;font-size:0.75rem;font-family:'Noto Sans TC',sans-serif;transition:all 0.2s;}
 .logout-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+/* 背景播放提示橫幅 */
+#bg-banner{
+  display:none;background:rgba(224,92,92,0.1);border-bottom:1px solid rgba(224,92,92,0.2);
+  padding:6px 1.5rem;font-size:0.75rem;color:var(--accent);
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+}
+#bg-banner.hidden{display:none!important;}
+#bg-banner button{background:none;border:1px solid rgba(224,92,92,0.4);color:var(--accent);padding:2px 10px;border-radius:20px;cursor:pointer;font-size:0.72rem;font-family:'Noto Sans TC',sans-serif;}
 
 .layout{display:grid;grid-template-columns:320px 1fr;flex:1;height:calc(100vh - 57px);overflow:hidden;}
 
@@ -219,7 +221,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;heigh
     <div class="auth-logo">🎵</div>
     <div class="auth-title">YT PLAYER</div>
     <div class="auth-sub">個人音樂歌單・無廣告・連續播放</div>
-    
+
     <div id="auth-mode-login">
       <input class="auth-input" type="email" id="email-input" placeholder="電子郵件">
       <input class="auth-input" type="password" id="pwd-input" placeholder="密碼">
@@ -250,6 +252,12 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;heigh
       <button class="logout-btn" onclick="logout()">登出</button>
     </div>
   </header>
+
+  <!-- iPhone 背景播放提示 -->
+  <div id="bg-banner" class="hidden">
+    <span>📱 iPhone 背景播放提示：播放後鎖定螢幕，從控制中心繼續控制</span>
+    <button onclick="document.getElementById('bg-banner').classList.add('hidden')">關閉</button>
+  </div>
 
   <div class="layout">
     <!-- Sidebar -->
@@ -376,45 +384,52 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;heigh
 <!-- Firebase SDKs -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, collection, doc, addDoc, getDocs, deleteDoc, updateDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import {
+  getAuth, onAuthStateChanged,
+  signInWithEmailAndPassword, createUserWithEmailAndPassword,
+  signOut, updateProfile
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import {
+  getFirestore, collection, doc, addDoc, deleteDoc, updateDoc,
+  onSnapshot, query, orderBy, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 // ════════════════════════════════
-// 🔧 貼上你的 Firebase 設定
+// 🔧 Firebase 設定
 // ════════════════════════════════
 const firebaseConfig = {
-    apiKey: "AIzaSyAlpRgIpIC9Lj4R7G8d5jEk8TkD5XdA_8E",
-    authDomain: "player-98bf0.firebaseapp.com",
-    projectId: "player-98bf0",
-    storageBucket: "player-98bf0.firebasestorage.app",
-    messagingSenderId: "426745984827",
-    appId: "1:426745984827:web:dd24aac8090ccf3c46e91e"
+  apiKey: "AIzaSyAlpRgIpIC9Lj4R7G8d5jEk8TkD5XdA_8E",
+  authDomain: "player-98bf0.firebaseapp.com",
+  projectId: "player-98bf0",
+  storageBucket: "player-98bf0.firebasestorage.app",
+  messagingSenderId: "426745984827",
+  appId: "1:426745984827:web:dd24aac8090ccf3c46e91e"
 };
 // ════════════════════════════════
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const googleProvider = new GoogleAuthProvider();
 
+// ── 狀態變數 ─────────────────────────────────────────
 let currentUser = null;
 let playlists = [];
 let currentPlIdx = -1;
 let currentSongIdx = -1;
-let queue = [];
+let queue = [];          // [{ plIdx, songIdx }]
 let queueIdx = -1;
 let isPlaying = false;
-let repeatMode = 0;
+let repeatMode = 0;      // 0=無, 1=全部循環, 2=單曲循環
 let shuffleOn = false;
 let ytPlayer = null;
 let progTimer = null;
-let errorHandling = false;
 let embedCheckTimer = null;
 let lastCheckedVid = null;
 let lastEmbedOk = null;
 let unsubscribePlaylists = null;
+let mediaSessionReady = false;
 
-// ── Auth state ───────────────────────────────────────
+// ── Auth 狀態監聽 ────────────────────────────────────
 onAuthStateChanged(auth, user => {
   document.getElementById('loading-overlay').style.display = 'none';
   if (user) {
@@ -435,7 +450,7 @@ function showAuth() {
 function showApp() {
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app-screen').style.display = 'flex';
-  // User avatar
+
   const av = document.getElementById('user-avatar');
   const nameEl = document.getElementById('user-name-display');
   if (currentUser.photoURL) {
@@ -444,47 +459,46 @@ function showApp() {
     av.textContent = (currentUser.displayName || currentUser.email || '?')[0].toUpperCase();
   }
   nameEl.textContent = currentUser.displayName || currentUser.email;
+
+  // iPhone 提示橫幅
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  if (isIOS) document.getElementById('bg-banner').classList.remove('hidden');
+
   listenPlaylists();
 }
 
-// ── Auth actions ─────────────────────────────────────
-window.loginGoogle = async () => {
-  try { await signInWithPopup(auth, googleProvider); }
-  catch(e) { showAuthErr(e.message); }
-};
-
+// ── Auth 操作 ────────────────────────────────────────
 window.loginEmail = async () => {
   const email = document.getElementById('email-input').value.trim();
   const pwd = document.getElementById('pwd-input').value;
+  document.getElementById('auth-err').textContent = '';
   try { await signInWithEmailAndPassword(auth, email, pwd); }
-  catch(e) { showAuthErr(friendlyErr(e.code)); }
+  catch(e) { document.getElementById('auth-err').textContent = friendlyErr(e.code); }
 };
 
 window.registerEmail = async () => {
   const name = document.getElementById('name-input').value.trim();
   const email = document.getElementById('reg-email-input').value.trim();
   const pwd = document.getElementById('reg-pwd-input').value;
-  if (!name) { showAuthErr('請輸入顯示名稱', true); return; }
+  document.getElementById('reg-auth-err').textContent = '';
+  if (!name) { document.getElementById('reg-auth-err').textContent = '請輸入顯示名稱'; return; }
   try {
     const cred = await createUserWithEmailAndPassword(auth, email, pwd);
     await updateProfile(cred.user, { displayName: name });
-  } catch(e) { showAuthErr(friendlyErr(e.code), true); }
+  } catch(e) { document.getElementById('reg-auth-err').textContent = friendlyErr(e.code); }
 };
 
 window.logout = async () => {
-  playlists = []; currentPlIdx = -1; currentSongIdx = -1; queue = [];
-  if (ytPlayer) ytPlayer.stopVideo();
+  playlists = []; currentPlIdx = -1; currentSongIdx = -1; queue = []; queueIdx = -1;
+  clearInterval(progTimer);
+  if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo();
   await signOut(auth);
 };
 
 window.switchAuthMode = (mode) => {
-  document.getElementById('auth-mode-login').style.display = mode==='login' ? 'block' : 'none';
-  document.getElementById('auth-mode-register').style.display = mode==='register' ? 'block' : 'none';
+  document.getElementById('auth-mode-login').style.display = mode === 'login' ? 'block' : 'none';
+  document.getElementById('auth-mode-register').style.display = mode === 'register' ? 'block' : 'none';
 };
-
-function showAuthErr(msg, isReg=false) {
-  document.getElementById(isReg ? 'reg-auth-err' : 'auth-err').textContent = msg;
-}
 
 function friendlyErr(code) {
   const map = {
@@ -519,15 +533,13 @@ window.createPlaylist = async () => {
   const desc = document.getElementById('new-pl-desc').value.trim();
   await addDoc(plRef(), { name, desc, songs: [], createdAt: serverTimestamp() });
   closeModal('modal-new-pl');
-  // select newly created (will come from snapshot)
-  setTimeout(() => selectPlaylist(playlists.length - 1), 400);
 };
 
 window.deletePlaylist = async (e, idx) => {
   e.stopPropagation();
   if (!confirm(`確定刪除「${playlists[idx].name}」？`)) return;
   await deleteDoc(doc(db, 'users', currentUser.uid, 'playlists', playlists[idx].firestoreId));
-  if (currentPlIdx === idx) currentPlIdx = -1;
+  if (currentPlIdx === idx) { currentPlIdx = -1; renderSongs(); }
 };
 
 async function saveSongs(plIdx) {
@@ -549,12 +561,13 @@ window.addSong = async () => {
   await saveSongs(plIdx);
   if (currentPlIdx === plIdx) renderSongs();
   closeModal('modal-add-song');
+  showToast('✅ 已加入：' + name);
 };
 
 window.removeSong = async (e, plIdx, songIdx) => {
   e.stopPropagation();
   playlists[plIdx].songs.splice(songIdx, 1);
-  if (currentSongIdx === songIdx) currentSongIdx = -1;
+  if (currentPlIdx === plIdx && currentSongIdx === songIdx) currentSongIdx = -1;
   await saveSongs(plIdx);
   renderSongs();
 };
@@ -570,54 +583,122 @@ window.mergePlaylists = async () => {
   }));
   await addDoc(plRef(), { name, desc: `由 ${checked.length} 個歌單合併`, songs, createdAt: serverTimestamp() });
   closeModal('modal-merge');
+  showToast('✅ 合併完成：' + name);
 };
 
-// ── YouTube API (整合修復版) ───────────────────────────────────────
+// ── YouTube IFrame API ────────────────────────────────
 window.onYouTubeIframeAPIReady = function() {
   ytPlayer = new YT.Player('yt-player', {
-    height: '100%', 
+    height: '100%',
     width: '100%',
-    playerVars: { 
-      'autoplay': 0, 
-      'controls': 1, 
-      'rel': 0, 
-      'modestbranding': 1, 
-      'iv_load_policy': 3,
-      'playsinline': 1  // 允許 iPhone 在網頁內播放，背景播放關鍵
+    playerVars: {
+      autoplay: 0,
+      controls: 1,
+      rel: 0,
+      modestbranding: 1,
+      iv_load_policy: 3,
+      playsinline: 1   // ← iPhone 網頁內播放（不全螢幕）的關鍵
     },
-    events: { 
-      'onStateChange': onPlayerState, 
-      'onReady': () => {
-        setVolume(80);
-        // 初始化 iOS 控制中心監聽
-        if ('mediaSession' in navigator) {
-          navigator.mediaSession.setActionHandler('play', () => { if(ytPlayer) ytPlayer.playVideo(); });
-          navigator.mediaSession.setActionHandler('pause', () => { if(ytPlayer) ytPlayer.pauseVideo(); });
-          navigator.mediaSession.setActionHandler('previoustrack', () => { prevSong(); });
-          navigator.mediaSession.setActionHandler('nexttrack', () => { nextSong(); });
-        }
-      }, 
-      'onError': onPlayerError 
+    events: {
+      onReady: onPlayerReady,
+      onStateChange: onPlayerState,
+      onError: onPlayerError
     }
   });
 };
 
-// 確保刪除掉原本程式碼中多出來的 "player = new YT.Player('player'..." 那幾行
-
-// 獨立出來的背景控制設定
-function setupMediaSessionHandlers() {
-    if ('mediaSession' in navigator) {
-        navigator.mediaSession.setActionHandler('play', () => { if(ytPlayer) ytPlayer.playVideo(); });
-        navigator.mediaSession.setActionHandler('pause', () => { if(ytPlayer) ytPlayer.pauseVideo(); });
-        navigator.mediaSession.setActionHandler('previoustrack', () => { prevSong(); });
-        navigator.mediaSession.setActionHandler('nexttrack', () => { nextSong(); });
-    }
+function onPlayerReady() {
+  setVolume(80);
+  setupMediaSession();
 }
+
+// ── 播放狀態處理 ──────────────────────────────────────
+function onPlayerState(e) {
+  const S = YT.PlayerState;
+  switch (e.data) {
+    case S.PLAYING:
+      isPlaying = true;
+      document.getElementById('play-btn').textContent = '⏸';
+      document.getElementById('status-badge').textContent = '播放中';
+      document.getElementById('status-badge').classList.remove('pause');
+      startProgress();
+      updateMediaSessionState('playing');
+      break;
+
+    case S.PAUSED:
+      isPlaying = false;
+      document.getElementById('play-btn').textContent = '▶';
+      document.getElementById('status-badge').textContent = '暫停';
+      document.getElementById('status-badge').classList.add('pause');
+      clearInterval(progTimer);
+      updateMediaSessionState('paused');
+      break;
+
+    case S.ENDED:
+      clearInterval(progTimer);
+      handleSongEnd();
+      break;
+
+    case S.BUFFERING:
+      document.getElementById('status-badge').textContent = '載入中';
+      break;
+  }
+}
+
+function onPlayerError(e) {
+  const msgs = { 2:'影片 ID 錯誤', 5:'HTML5 播放器錯誤', 100:'影片不存在', 101:'影片禁止嵌入', 150:'影片禁止嵌入' };
+  showToast('⚠️ ' + (msgs[e.data] || '播放錯誤') + '，跳到下一首');
+  setTimeout(() => nextSong(), 1500);
+}
+
+function handleSongEnd() {
+  if (repeatMode === 2) {
+    // 單曲循環
+    ytPlayer.seekTo(0); ytPlayer.playVideo();
+  } else if (queueIdx < queue.length - 1) {
+    queueIdx++;
+    loadQueueItem(queueIdx);
+  } else if (repeatMode === 1) {
+    // 全部循環：從頭再來
+    queueIdx = 0;
+    loadQueueItem(0);
+  } else {
+    isPlaying = false;
+    document.getElementById('play-btn').textContent = '▶';
+    document.getElementById('status-badge').textContent = '結束';
+    document.getElementById('status-badge').classList.add('pause');
+  }
+}
+
+// ── 載入並播放指定 queue 項目 ─────────────────────────
+function loadQueueItem(idx) {
+  if (idx < 0 || idx >= queue.length) return;
+  const { plIdx, songIdx } = queue[idx];
+  const pl = playlists[plIdx];
+  if (!pl) return;
+  const song = pl.songs[songIdx];
+  if (!song) return;
+
+  currentPlIdx = plIdx;
+  currentSongIdx = songIdx;
+
+  // 更新 now-playing 資訊
+  document.getElementById('np-title').textContent = song.title;
+  document.getElementById('np-playlist').textContent = pl.name;
+
+  // 載入影片
+  if (ytPlayer && ytPlayer.loadVideoById) {
+    ytPlayer.loadVideoById(song.vid);
+  }
+
+  // 更新 Media Session（控制中心 / 鎖定畫面）
+  updateMediaSessionMetadata(song, pl.name);
 
   renderSongs();
-  switchTab('songs');
+  renderPlaylists();
 }
 
+// ── 進度條 ────────────────────────────────────────────
 function startProgress() {
   clearInterval(progTimer);
   progTimer = setInterval(() => {
@@ -630,58 +711,101 @@ function startProgress() {
   }, 500);
 }
 
-function fmt(s) { s = Math.floor(s); return Math.floor(s/60) + ':' + (s%60+'').padStart(2,'0'); }
-// ── Media Session API (背景播放支援) ─────────────────────────
-function updateMediaSession(song, plName) {
-  if ('mediaSession' in navigator) {
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: song.title,
-      artist: plName || 'YT Player',
-      album: '個人音樂歌單',
-      artwork: [
-        { src: `https://img.youtube.com/vi/${song.vid}/hqdefault.jpg`, sizes: '480x360', type: 'image/jpeg' }
-      ]
-    });
+function fmt(s) {
+  s = Math.floor(s);
+  return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+}
 
-    // 綁定 iOS 控制中心的播放按鈕
-    navigator.mediaSession.setActionHandler('play', () => {
-      if(ytPlayer) ytPlayer.playVideo();
-    });
-    navigator.mediaSession.setActionHandler('pause', () => {
-      if(ytPlayer) ytPlayer.pauseVideo();
-    });
-    navigator.mediaSession.setActionHandler('previoustrack', () => {
-      prevSong();
-    });
-    navigator.mediaSession.setActionHandler('nexttrack', () => {
-      nextSong();
-    });
+// ── Media Session API（背景播放 / 鎖定畫面控制）────────
+function setupMediaSession() {
+  if (!('mediaSession' in navigator) || mediaSessionReady) return;
+  mediaSessionReady = true;
+  navigator.mediaSession.setActionHandler('play', () => { if (ytPlayer) ytPlayer.playVideo(); });
+  navigator.mediaSession.setActionHandler('pause', () => { if (ytPlayer) ytPlayer.pauseVideo(); });
+  navigator.mediaSession.setActionHandler('previoustrack', () => prevSong());
+  navigator.mediaSession.setActionHandler('nexttrack', () => nextSong());
+  navigator.mediaSession.setActionHandler('seekto', (d) => {
+    if (ytPlayer && ytPlayer.seekTo) ytPlayer.seekTo(d.seekTime, true);
+  });
+}
+
+function updateMediaSessionMetadata(song, plName) {
+  if (!('mediaSession' in navigator)) return;
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: song.title,
+    artist: plName || 'YT Player',
+    album: '個人音樂歌單',
+    artwork: [
+      { src: `https://img.youtube.com/vi/${song.vid}/mqdefault.jpg`, sizes: '320x180', type: 'image/jpeg' },
+      { src: `https://img.youtube.com/vi/${song.vid}/hqdefault.jpg`, sizes: '480x360', type: 'image/jpeg' }
+    ]
+  });
+}
+
+function updateMediaSessionState(state) {
+  if (!('mediaSession' in navigator)) return;
+  navigator.mediaSession.playbackState = state;
+  // 更新進度位置（讓鎖定畫面顯示進度條）
+  if (ytPlayer && ytPlayer.getCurrentTime && ytPlayer.getDuration) {
+    const cur = ytPlayer.getCurrentTime() || 0;
+    const dur = ytPlayer.getDuration() || 0;
+    if (dur > 0) {
+      try {
+        navigator.mediaSession.setPositionState({
+          duration: dur,
+          playbackRate: 1,
+          position: cur
+        });
+      } catch(_) {}
+    }
   }
 }
-// ── Controls ──────────────────────────────────────────
-window.togglePlay = () => { if (!ytPlayer) return; isPlaying ? ytPlayer.pauseVideo() : ytPlayer.playVideo(); };
-window.prevSong = () => { if (queueIdx > 0) { queueIdx--; loadQueueItem(queueIdx); } };
-window.nextSong = () => { if (queueIdx < queue.length - 1) { queueIdx++; loadQueueItem(queueIdx); } };
+
+// ── 播放控制 ──────────────────────────────────────────
+window.togglePlay = () => {
+  if (!ytPlayer) return;
+  isPlaying ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
+};
+
+window.prevSong = () => {
+  if (queueIdx > 0) { queueIdx--; loadQueueItem(queueIdx); }
+};
+
+window.nextSong = () => {
+  if (queueIdx < queue.length - 1) { queueIdx++; loadQueueItem(queueIdx); }
+  else if (repeatMode === 1) { queueIdx = 0; loadQueueItem(0); }
+};
+
 window.seekTo = (e) => {
   if (!ytPlayer || typeof ytPlayer.getDuration !== 'function') return;
   const rect = document.getElementById('prog-wrap').getBoundingClientRect();
   ytPlayer.seekTo(ytPlayer.getDuration() * (e.clientX - rect.left) / rect.width, true);
 };
-window.setVolume = (v) => { if (ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(Number(v)); document.getElementById('vol-slider').value = v; };
+
+window.setVolume = (v) => {
+  if (ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(Number(v));
+  document.getElementById('vol-slider').value = v;
+};
+
 window.toggleRepeat = () => {
   repeatMode = (repeatMode + 1) % 3;
   const btn = document.getElementById('repeat-btn');
   btn.classList.toggle('active', repeatMode > 0);
   btn.textContent = repeatMode === 2 ? '🔂' : '🔁';
+  const labels = ['關閉循環', '全部循環', '單曲循環'];
+  showToast(labels[repeatMode]);
 };
+
 window.toggleShuffle = () => {
   shuffleOn = !shuffleOn;
   document.getElementById('shuffle-btn').classList.toggle('active', shuffleOn);
+  showToast(shuffleOn ? '隨機播放 開啟' : '隨機播放 關閉');
 };
 
+// ── 建立播放佇列 ──────────────────────────────────────
 function buildQueue(plIdx, startSongIdx) {
   const pl = playlists[plIdx];
-  if (!pl) return;
+  if (!pl || !pl.songs.length) return;
   let indices = pl.songs.map((_, i) => i);
   if (shuffleOn) indices.sort(() => Math.random() - 0.5);
   queue = indices.map(i => ({ plIdx, songIdx: i }));
@@ -689,8 +813,16 @@ function buildQueue(plIdx, startSongIdx) {
   queueIdx = si >= 0 ? si : 0;
 }
 
-window.playSong = (plIdx, songIdx) => { buildQueue(plIdx, songIdx); loadQueueItem(queueIdx); };
-window.playAll = () => { if (currentPlIdx < 0) return; playSong(currentPlIdx, 0); };
+window.playSong = (plIdx, songIdx) => {
+  buildQueue(plIdx, songIdx);
+  loadQueueItem(queueIdx);
+};
+
+window.playAll = () => {
+  if (currentPlIdx < 0 || !playlists[currentPlIdx]?.songs.length) return;
+  playSong(currentPlIdx, 0);
+};
+
 window.shufflePlay = () => {
   if (currentPlIdx < 0) return;
   shuffleOn = true;
@@ -699,7 +831,7 @@ window.shufflePlay = () => {
   loadQueueItem(0);
 };
 
-// ── Embed check ───────────────────────────────────────
+// ── Embed 預檢 ─────────────────────────────────────────
 window.onUrlInput = (val) => {
   clearTimeout(embedCheckTimer);
   const status = document.getElementById('embed-status');
@@ -731,8 +863,7 @@ function onEmbedResult(ok, title) {
   }
 }
 
-// ── Render ────────────────────────────────────────────
-window.renderPlaylists = renderPlaylists;
+// ── 渲染歌單列表 ──────────────────────────────────────
 function renderPlaylists() {
   const el = document.getElementById('playlists-list');
   document.getElementById('pl-count').textContent = playlists.length + ' 個歌單';
@@ -742,11 +873,11 @@ function renderPlaylists() {
   }
   const icons = ['🎵','🎸','🎹','🎺','🥁','🎻','🎼','🎧'];
   el.innerHTML = playlists.map((pl, i) => `
-    <div class="pl-item ${i===currentPlIdx?'active':''}" onclick="selectPlaylist(${i})">
+    <div class="pl-item ${i === currentPlIdx ? 'active' : ''}" onclick="selectPlaylist(${i})">
       <div class="pl-icon">${icons[i % icons.length]}</div>
       <div class="pl-info">
         <div class="pl-name">${esc(pl.name)}</div>
-        <div class="pl-count">${(pl.songs||[]).length} 首</div>
+        <div class="pl-count">${(pl.songs || []).length} 首</div>
       </div>
       <div class="pl-actions">
         <button class="icon-btn" onclick="deletePlaylist(event,${i})">✕</button>
@@ -761,6 +892,7 @@ window.selectPlaylist = (idx) => {
   switchTab('songs');
 };
 
+// ── 渲染曲目列表 ──────────────────────────────────────
 function renderSongs() {
   const el = document.getElementById('songs-list');
   const badge = document.getElementById('pl-song-badge');
@@ -773,18 +905,18 @@ function renderSongs() {
   }
   const pl = playlists[currentPlIdx];
   document.getElementById('cur-pl-name').textContent = pl.name;
-  document.getElementById('cur-pl-desc').textContent = pl.desc || (pl.songs||[]).length + ' 首歌曲';
-  badge.textContent = (pl.songs||[]).length ? `(${pl.songs.length})` : '';
+  document.getElementById('cur-pl-desc').textContent = pl.desc || (pl.songs || []).length + ' 首歌曲';
+  badge.textContent = (pl.songs || []).length ? `(${pl.songs.length})` : '';
   if (!pl.songs || pl.songs.length === 0) {
     el.innerHTML = '<div class="empty-hint"><div class="big">🎵</div>歌單是空的<br>點「＋ 加歌」加入歌曲</div>';
     return;
   }
   el.innerHTML = pl.songs.map((s, i) => `
-    <div class="song-item ${i===currentSongIdx && currentPlIdx===currentPlIdx?'playing':''}" onclick="playSong(${currentPlIdx},${i})">
-      <span class="song-num">${i===currentSongIdx?'♪':(i+1)}</span>
+    <div class="song-item ${i === currentSongIdx && currentPlIdx === currentPlIdx ? 'playing' : ''}" onclick="playSong(${currentPlIdx},${i})">
+      <span class="song-num">${i === currentSongIdx ? '♪' : (i + 1)}</span>
       <img class="song-thumb" src="https://img.youtube.com/vi/${s.vid}/mqdefault.jpg" onerror="this.style.display='none'" loading="lazy">
       <div class="song-info">
-        <div class="song-title">${esc(s.title)}${s.embedOk===false?'<span class="no-embed-tag">⚠️嵌入</span>':''}</div>
+        <div class="song-title">${esc(s.title)}${s.embedOk === false ? '<span class="no-embed-tag">⚠️嵌入</span>' : ''}</div>
       </div>
       <button class="song-del" onclick="removeSong(event,${currentPlIdx},${i})">✕</button>
     </div>`).join('');
@@ -805,60 +937,80 @@ window.openAddSongModal = () => {
   document.getElementById('embed-status').innerHTML = '';
   lastCheckedVid = null; lastEmbedOk = null;
   const sel = document.getElementById('song-target-pl');
-  sel.innerHTML = playlists.map((pl, i) => `<option value="${i}" ${i===currentPlIdx?'selected':''}>${esc(pl.name)}</option>`).join('');
+  sel.innerHTML = playlists.map((pl, i) =>
+    `<option value="${i}" ${i === currentPlIdx ? 'selected' : ''}>${esc(pl.name)}</option>`
+  ).join('');
   openModal('modal-add-song');
   setTimeout(() => document.getElementById('song-url').focus(), 100);
 };
 
 window.openMergeModal = () => {
   if (playlists.length < 2) { alert('需要至少 2 個歌單才能合併'); return; }
-  document.getElementById('merge-list').innerHTML = playlists.map((pl, i) => `
-    <label class="checkbox-item"><input type="checkbox" value="${i}"> ${esc(pl.name)} (${(pl.songs||[]).length}首)</label>`).join('');
+  document.getElementById('merge-list').innerHTML = playlists.map((pl, i) =>
+    `<label class="checkbox-item"><input type="checkbox" value="${i}"> ${esc(pl.name)} (${(pl.songs || []).length}首)</label>`
+  ).join('');
   document.getElementById('merge-pl-name').value = '';
   openModal('modal-merge');
 };
 
-window.openModal = openModal;
-window.closeModal = closeModal;
-function openModal(id) { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+window.openModal = (id) => document.getElementById(id).classList.add('open');
+window.closeModal = (id) => document.getElementById(id).classList.remove('open');
 
-document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); }));
+document.querySelectorAll('.modal-overlay').forEach(o =>
+  o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); })
+);
 
-// ── Tab ───────────────────────────────────────────────
+// ── Tab 切換 ──────────────────────────────────────────
 window.switchTab = (name) => {
-  document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', ['playlists','songs'][i] === name));
-  document.querySelectorAll('.tab-panel').forEach((p, i) => p.classList.toggle('active', ['tab-playlists','tab-songs'][i] === 'tab-' + name));
+  document.querySelectorAll('.tab-btn').forEach((b, i) =>
+    b.classList.toggle('active', ['playlists', 'songs'][i] === name)
+  );
+  document.querySelectorAll('.tab-panel').forEach((p, i) =>
+    p.classList.toggle('active', ['tab-playlists', 'tab-songs'][i] === 'tab-' + name)
+  );
 };
 
-// ── Helpers ───────────────────────────────────────────
+// ── 工具函式 ──────────────────────────────────────────
 function uid() { return Math.random().toString(36).slice(2, 9); }
-function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function esc(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
 function extractVideoId(url) {
   url = url.trim();
-  const patterns = [/[?&]v=([A-Za-z0-9_-]{11})/, /\/live\/([A-Za-z0-9_-]{11})/, /\/embed\/([A-Za-z0-9_-]{11})/, /\/v\/([A-Za-z0-9_-]{11})/, /youtu\.be\/([A-Za-z0-9_-]{11})/, /\/shorts\/([A-Za-z0-9_-]{11})/, /^([A-Za-z0-9_-]{11})$/];
+  const patterns = [
+    /[?&]v=([A-Za-z0-9_-]{11})/,
+    /\/live\/([A-Za-z0-9_-]{11})/,
+    /\/embed\/([A-Za-z0-9_-]{11})/,
+    /\/v\/([A-Za-z0-9_-]{11})/,
+    /youtu\.be\/([A-Za-z0-9_-]{11})/,
+    /\/shorts\/([A-Za-z0-9_-]{11})/,
+    /^([A-Za-z0-9_-]{11})$/
+  ];
   for (const p of patterns) { const m = url.match(p); if (m) return m[1]; }
   return null;
 }
 
-function showToast(msg, dur=3500) {
+function showToast(msg, dur = 3500) {
   let t = document.getElementById('toast');
   if (!t) {
-    t = document.createElement('div'); t.id = 'toast';
+    t = document.createElement('div');
+    t.id = 'toast';
     t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1e2230;border:1px solid #2a2f40;color:#eef0f5;padding:10px 20px;border-radius:10px;font-size:0.83rem;z-index:999;opacity:0;transition:opacity 0.3s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center;';
     document.body.appendChild(t);
   }
-  t.textContent = msg; t.style.opacity = '1';
-  clearTimeout(t._t); t._t = setTimeout(() => t.style.opacity = '0', dur);
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.style.opacity = '0', dur);
 }
 
-// Keyboard
+// ── 鍵盤捷徑 ─────────────────────────────────────────
 document.addEventListener('keydown', e => {
   if (['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) return;
-  if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
-  if (e.code === 'ArrowRight') nextSong();
-  if (e.code === 'ArrowLeft') prevSong();
+  if (e.code === 'Space') { e.preventDefault(); window.togglePlay(); }
+  if (e.code === 'ArrowRight') window.nextSong();
+  if (e.code === 'ArrowLeft') window.prevSong();
 });
 </script>
 
