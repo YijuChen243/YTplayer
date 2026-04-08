@@ -580,7 +580,26 @@ window.onYouTubeIframeAPIReady = function() {
     events: { onStateChange: onPlayerState, onReady: () => setVolume(80), onError: onPlayerError }
   });
 };
-
+// 在 playerVars 裡面一定要有 playsinline: 1
+player = new YT.Player('player', {
+    height: '360',
+    width: '640',
+    videoId: '你的影片ID',
+    playerVars: {
+        'playsinline': 1,  // 就是這行！
+        'autoplay': 1,
+        'controls': 1
+    },
+    events: {
+        'onReady': onPlayerReady,
+        'onStateChange': onPlayerStateChange
+    }
+});
+  // 加入這段來輔助 iOS 背景播放
+if ('mediaSession' in navigator) {
+  navigator.mediaSession.setActionHandler('play', () => player.playVideo());
+  navigator.mediaSession.setActionHandler('pause', () => player.pauseVideo());
+}
 function onPlayerError(e) {
   if (errorHandling) return;
   const embedErrors = [101, 150, 153];
