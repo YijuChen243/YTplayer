@@ -572,29 +572,37 @@ window.mergePlaylists = async () => {
   closeModal('modal-merge');
 };
 
-// ── YouTube API 修正整合版 ───────────────────────────────────────
+// ── YouTube API (整合修復版) ───────────────────────────────────────
 window.onYouTubeIframeAPIReady = function() {
-    ytPlayer = new YT.Player('yt-player', {
-        height: '100%', 
-        width: '100%',
-        playerVars: { 
-            'autoplay': 0, 
-            'controls': 1, 
-            'rel': 0, 
-            'modestbranding': 1, 
-            'iv_load_policy:': 3,
-            'playsinline': 1  // 關鍵：防止 iPhone 自動跳出全螢幕
-        },
-        events: { 
-            'onStateChange': onPlayerState, 
-            'onReady': () => {
-                setVolume(80);
-                setupMediaSessionHandlers(); // 初始化背景控制連結
-            }, 
-            'onError': onPlayerError 
+  ytPlayer = new YT.Player('yt-player', {
+    height: '100%', 
+    width: '100%',
+    playerVars: { 
+      'autoplay': 0, 
+      'controls': 1, 
+      'rel': 0, 
+      'modestbranding': 1, 
+      'iv_load_policy': 3,
+      'playsinline': 1  // 允許 iPhone 在網頁內播放，背景播放關鍵
+    },
+    events: { 
+      'onStateChange': onPlayerState, 
+      'onReady': () => {
+        setVolume(80);
+        // 初始化 iOS 控制中心監聽
+        if ('mediaSession' in navigator) {
+          navigator.mediaSession.setActionHandler('play', () => { if(ytPlayer) ytPlayer.playVideo(); });
+          navigator.mediaSession.setActionHandler('pause', () => { if(ytPlayer) ytPlayer.pauseVideo(); });
+          navigator.mediaSession.setActionHandler('previoustrack', () => { prevSong(); });
+          navigator.mediaSession.setActionHandler('nexttrack', () => { nextSong(); });
         }
-    });
+      }, 
+      'onError': onPlayerError 
+    }
+  });
 };
+
+// 確保刪除掉原本程式碼中多出來的 "player = new YT.Player('player'..." 那幾行
 
 // 獨立出來的背景控制設定
 function setupMediaSessionHandlers() {
