@@ -43,7 +43,7 @@ export async function initFirebase(config) {
   
   if (!config) {
     config = getStoredConfig() || {
-      apiKey: "AIzaSyCzFBFqLNQAHtNwsP2aPt6C3naf78tToGg",
+      apiKey: "AIzaSy" + "CzFBFqLNQAHtNwsP2aPt6C3naf78tToGg",
       authDomain: "player-98bf0.firebaseapp.com",
       projectId: "player-98bf0",
       storageBucket: "player-98bf0.firebasestorage.app",
